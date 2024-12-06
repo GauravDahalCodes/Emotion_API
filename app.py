@@ -3,7 +3,6 @@ import pandas as pd
 from flask import Flask, request, jsonify
 from scipy.stats import kurtosis, skew
 import onnxruntime as ort
-import requests
 
 app = Flask(__name__)
 
@@ -65,23 +64,32 @@ def process_time_series(time_series_data, window_size=3):
 
     return pd.DataFrame(rows)
 
-# Endpoint to handle live predictions from an external API
+# Endpoint to handle live predictions with direct data input
 @app.route("/live_predict", methods=["POST"])
 def live_predict():
     try:
-        # Parse the external API endpoint from the request
+        # Parse the incoming data from the request
         input_data = request.json
-        external_api_url = input_data.get("external_api_url")
 
-        if not external_api_url:
-            return jsonify({"error": "No external API URL provided"}), 400
+        # Ensure the required fields are present in the request
+        required_fields = ['acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z', 'rot_x', 'rot_y', 'rot_z', 'heart']
+        for field in required_fields:
+            if field not in input_data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
 
-        # Fetch live data from the external API
-        response = requests.get(external_api_url)
-        if response.status_code != 200:
-            return jsonify({"error": f"Failed to fetch data from {external_api_url}"}), 500
-
-        time_series_data = response.json()
+        # Prepare the time-series data directly from the input
+        time_series_data = {
+            "acc_x": input_data["acc_x"],
+            "acc_y": input_data["acc_y"],
+            "acc_z": input_data["acc_z"],
+            "gyro_x": input_data["gyro_x"],
+            "gyro_y": input_data["gyro_y"],
+            "gyro_z": input_data["gyro_z"],
+            "rot_x": input_data["rot_x"],
+            "rot_y": input_data["rot_y"],
+            "rot_z": input_data["rot_z"],
+            "heart": input_data["heart"]
+        }
 
         # Process the time-series data (window_size is fixed to 3)
         features_df = process_time_series(time_series_data, window_size=3)
